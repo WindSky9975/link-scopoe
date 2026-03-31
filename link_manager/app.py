@@ -40,6 +40,7 @@ class LinkManagerApp:
 
         self.root_path_var = tk.StringVar()
         self.type_filter_var = tk.StringVar(value=FILTER_ALL)
+        self.link_drive_filter_var = tk.StringVar(value=FILTER_ALL)
         self.target_drive_filter_var = tk.StringVar(value=FILTER_ALL)
         self.status_var = tk.StringVar(value="就绪。")
         self.summary_var = tk.StringVar(value="显示 0 / 总计 0")
@@ -56,6 +57,7 @@ class LinkManagerApp:
         self.filter_comboboxes: list[ttk.Combobox] = []
 
         self.type_filter_var.trace_add("write", self._handle_filter_change)
+        self.link_drive_filter_var.trace_add("write", self._handle_filter_change)
         self.target_drive_filter_var.trace_add("write", self._handle_filter_change)
 
         self._build_layout()
@@ -230,7 +232,18 @@ class LinkManagerApp:
         self.type_filter_combo.pack(side="left", padx=(4, 0))
         self._configure_filter_combobox(self.type_filter_combo)
 
-        ttk.Label(toolbar, text="盘符：").pack(side="left", padx=(14, 0))
+        ttk.Label(toolbar, text="链接盘符：").pack(side="left", padx=(14, 0))
+        self.link_drive_combo = ttk.Combobox(
+            toolbar,
+            textvariable=self.link_drive_filter_var,
+            values=(FILTER_ALL,),
+            state="readonly",
+            width=8,
+        )
+        self.link_drive_combo.pack(side="left", padx=(4, 0))
+        self._configure_filter_combobox(self.link_drive_combo)
+
+        ttk.Label(toolbar, text="目标盘符：").pack(side="left", padx=(14, 0))
         self.target_drive_combo = ttk.Combobox(
             toolbar,
             textvariable=self.target_drive_filter_var,
@@ -386,7 +399,7 @@ class LinkManagerApp:
 
     def _refresh_tree(self) -> None:
         selected_path = self._get_selected_path()
-        self._refresh_target_drive_filter_options()
+        self._refresh_drive_filter_options()
         filtered_entries = self._get_filtered_entries()
 
         self.tree.delete(*self.tree.get_children())
@@ -416,43 +429,58 @@ class LinkManagerApp:
 
     def _get_filtered_entries(self) -> list[LinkEntry]:
         type_filter = self.type_filter_var.get().strip()
+        link_drive_filter = self.link_drive_filter_var.get().strip()
         target_drive_filter = self.target_drive_filter_var.get().strip()
         filtered: list[LinkEntry] = []
 
         for entry in self.entries:
             if type_filter and type_filter != FILTER_ALL and entry.link_type != type_filter:
                 continue
-            if not self._matches_target_drive_filter(entry, target_drive_filter):
+            if not self._matches_drive_filter(self._extract_link_drive(entry), link_drive_filter):
+                continue
+            if not self._matches_drive_filter(self._extract_target_drive(entry), target_drive_filter):
                 continue
             filtered.append(entry)
 
         sort_key = self._sort_key_for(self.sort_column)
         return sorted(filtered, key=sort_key, reverse=self.sort_descending)
 
-    def _refresh_target_drive_filter_options(self) -> None:
-        drive_values = [FILTER_ALL, *self._collect_target_drive_values()]
-        current_value = self.target_drive_filter_var.get().strip() or FILTER_ALL
-
+    def _refresh_drive_filter_options(self) -> None:
         self._updating_filters = True
         try:
-            self.target_drive_combo.configure(values=drive_values)
-            if current_value not in drive_values:
+            link_drives = [FILTER_ALL, *self._collect_drive_values(self._extract_link_drive)]
+            current_link = self.link_drive_filter_var.get().strip() or FILTER_ALL
+            self.link_drive_combo.configure(values=link_drives)
+            if current_link not in link_drives:
+                self.link_drive_filter_var.set(FILTER_ALL)
+
+            target_drives = [FILTER_ALL, *self._collect_drive_values(self._extract_target_drive)]
+            current_target = self.target_drive_filter_var.get().strip() or FILTER_ALL
+            self.target_drive_combo.configure(values=target_drives)
+            if current_target not in target_drives:
                 self.target_drive_filter_var.set(FILTER_ALL)
         finally:
             self._updating_filters = False
 
-    def _collect_target_drive_values(self) -> list[str]:
+    def _collect_drive_values(self, extractor) -> list[str]:
         drives = {
             drive
             for entry in self.entries
-            if (drive := self._extract_target_drive(entry))
+            if (drive := extractor(entry))
         }
         return sorted(drives)
 
-    def _matches_target_drive_filter(self, entry: LinkEntry, target_drive_filter: str) -> bool:
-        if not target_drive_filter or target_drive_filter == FILTER_ALL:
+    def _matches_drive_filter(self, drive: str, drive_filter: str) -> bool:
+        if not drive_filter or drive_filter == FILTER_ALL:
             return True
-        return self._extract_target_drive(entry) == target_drive_filter
+        return drive == drive_filter
+
+    def _extract_link_drive(self, entry: LinkEntry) -> str:
+        drive, _ = os.path.splitdrive(entry.path)
+        drive = drive.upper()
+        if len(drive) == 2 and drive[1] == ":" and drive[0].isalpha():
+            return drive
+        return ""
 
     def _extract_target_drive(self, entry: LinkEntry) -> str:
         target_value = entry.target or entry.raw_target
