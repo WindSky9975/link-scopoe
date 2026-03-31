@@ -1,4 +1,4 @@
-# LinkScope
+﻿# LinkScope
 
 LinkScope 是一个本地 Windows 桌面工具，用于扫描和管理目录联接与符号链接。
 
@@ -21,6 +21,21 @@ python main.py
 - 新建目录联接或符号链接
 - 删除所选链接且不删除其目标
 - 打开链接所在目录、在资源管理器中定位、复制路径
+
+## CI/CD
+
+项目已接入 GitHub Actions：
+
+- CI：向 `main` 分支推送或发起 Pull Request 时，自动执行语法编译检查和 `unittest`
+- CD：手动触发工作流或推送 `v*` 标签时，自动打包 Windows 单文件程序并上传构建产物
+- Release：推送 `v1.0.0` 这类标签时，会额外创建 GitHub Release 并附带 zip 包
+
+发布示例：
+
+```powershell
+git tag v0.1.0
+git push origin v0.1.0
+```
 
 ## 说明
 
