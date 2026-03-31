@@ -228,10 +228,6 @@ class LinkManagerApp:
         self.sort_descending = False
         self._visible_paths: list[str] = []
         self._updating_filters = False
-        self.sidebar_host: ttk.Frame | None = None
-        self.sidebar_canvas: tk.Canvas | None = None
-        self.sidebar_content: ttk.Frame | None = None
-        self.sidebar_window_id: int | None = None
         self.filter_comboboxes: list[ttk.Combobox] = []
 
         self.type_filter_var.trace_add("write", self._handle_filter_change)
@@ -281,7 +277,7 @@ class LinkManagerApp:
         container = ttk.Frame(self.root, style="App.TFrame", padding=18)
         container.pack(fill="both", expand=True)
         container.columnconfigure(0, weight=1)
-        container.rowconfigure(1, weight=1)
+        container.rowconfigure(2, weight=1)
 
         header = ttk.Frame(container, style="App.TFrame")
         header.grid(row=0, column=0, sticky="ew", pady=(0, 14))
@@ -292,85 +288,38 @@ class LinkManagerApp:
             style="SubHeader.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(2, 0))
 
-        content = ttk.Panedwindow(container, orient="horizontal")
-        content.grid(row=1, column=0, sticky="nsew")
+        scan_bar = ttk.Frame(container, style="App.TFrame")
+        scan_bar.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        scan_bar.columnconfigure(1, weight=1)
+        ttk.Label(scan_bar, text="根目录：").grid(row=0, column=0, sticky="w")
+        ttk.Entry(scan_bar, textvariable=self.root_path_var).grid(row=0, column=1, sticky="ew", padx=(6, 8))
+        ttk.Button(scan_bar, text="选择", command=self._choose_root).grid(row=0, column=2, padx=(0, 4))
+        self.scan_button = ttk.Button(scan_bar, text="开始扫描", command=self._start_scan, style="Primary.TButton")
+        self.scan_button.grid(row=0, column=3, padx=4)
+        self.stop_button = ttk.Button(scan_bar, text="停止", command=self._stop_scan)
+        self.stop_button.grid(row=0, column=4, padx=(4, 0))
 
-        sidebar_host = ttk.Frame(content, style="Panel.TFrame")
-        sidebar_host.columnconfigure(0, weight=1)
-        sidebar_host.rowconfigure(0, weight=1)
-        content.add(sidebar_host, weight=0)
-        sidebar = self._create_scrollable_sidebar(sidebar_host)
-
-        results = ttk.Frame(content, style="Panel.TFrame", padding=14)
+        results = ttk.Frame(container, style="Panel.TFrame", padding=14)
+        results.grid(row=2, column=0, sticky="nsew")
         results.columnconfigure(0, weight=1)
         results.rowconfigure(1, weight=1)
-        content.add(results, weight=1)
-
-        self._build_sidebar(sidebar)
         self._build_results(results)
 
+        activity_frame = ttk.LabelFrame(container, text="操作日志", style="Section.TLabelframe", padding=8)
+        activity_frame.grid(row=3, column=0, sticky="ew", pady=(10, 0))
+        activity_frame.columnconfigure(0, weight=1)
+        self.activity_text = self._make_readonly_text(activity_frame, height=5)
+        self.activity_text.grid(row=0, column=0, sticky="ew")
+        activity_scrollbar = ttk.Scrollbar(activity_frame, orient="vertical", command=self.activity_text.yview)
+        activity_scrollbar.grid(row=0, column=1, sticky="ns", padx=(8, 0))
+        self.activity_text.configure(yscrollcommand=activity_scrollbar.set)
+
         status_bar = ttk.Label(container, textvariable=self.status_var, style="Status.TLabel", anchor="w")
-        status_bar.grid(row=2, column=0, sticky="ew", pady=(14, 0))
-
-    def _create_scrollable_sidebar(self, parent: ttk.Frame) -> ttk.Frame:
-        canvas = tk.Canvas(
-            parent,
-            background="#ffffff",
-            borderwidth=0,
-            highlightthickness=0,
-            relief="flat",
-        )
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
-        canvas.configure(yscrollcommand=scrollbar.set)
-
-        canvas.grid(row=0, column=0, sticky="nsew")
-        scrollbar.grid(row=0, column=1, sticky="ns")
-
-        content = ttk.Frame(canvas, style="Panel.TFrame", padding=14)
-        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
-        content.columnconfigure(0, weight=1)
-
-        content.bind("<Configure>", self._sync_sidebar_scroll_region)
-        canvas.bind("<Configure>", self._sync_sidebar_canvas_width)
-
-        self.sidebar_host = parent
-        self.sidebar_canvas = canvas
-        self.sidebar_content = content
-        self.sidebar_window_id = window_id
-        return content
-
-    def _sync_sidebar_scroll_region(self, _event: object = None) -> None:
-        if self.sidebar_canvas is None:
-            return
-        scroll_region = self.sidebar_canvas.bbox("all")
-        if scroll_region is not None:
-            self.sidebar_canvas.configure(scrollregion=scroll_region)
-
-    def _sync_sidebar_canvas_width(self, event: object) -> None:
-        if self.sidebar_canvas is None or self.sidebar_window_id is None:
-            return
-        width = getattr(event, "width", None)
-        if width is None:
-            return
-        self.sidebar_canvas.itemconfigure(self.sidebar_window_id, width=width)
-        self._sync_sidebar_scroll_region()
+        status_bar.grid(row=4, column=0, sticky="ew", pady=(10, 0))
 
     def _handle_global_mousewheel(self, event: tk.Event) -> str | None:
         self._dismiss_open_filter_comboboxes(event.widget)
-
-        if self.sidebar_canvas is None or not self._is_sidebar_widget(event.widget):
-            return None
-
-        units = self._mousewheel_units(event)
-        if units == 0:
-            return None
-
-        if event.widget == self.activity_text:
-            self.activity_text.yview_scroll(units, "units")
-            return "break"
-
-        self.sidebar_canvas.yview_scroll(units, "units")
-        return "break"
+        return None
 
     def _handle_global_click(self, event: tk.Event) -> None:
         self._dismiss_open_filter_comboboxes(event.widget)
@@ -382,8 +331,7 @@ class LinkManagerApp:
         return "break"
 
     def _blur_filter_combobox(self, _event: object = None) -> None:
-        if self.sidebar_canvas is not None:
-            self.root.after_idle(self.sidebar_canvas.focus_set)
+        self.root.after_idle(self.root.focus_set)
 
     def _configure_filter_combobox(self, combobox: ttk.Combobox) -> None:
         self.filter_comboboxes.append(combobox)
@@ -441,40 +389,6 @@ class LinkManagerApp:
 
     def _filter_combobox_popdown_path(self, combobox: ttk.Combobox) -> str:
         return str(self.root.tk.call("ttk::combobox::PopdownWindow", str(combobox)))
-
-    def _is_sidebar_widget(self, widget: tk.Misc | None) -> bool:
-        current = widget
-        while current is not None:
-            if current == self.sidebar_host:
-                return True
-            current = current.master
-        return False
-
-    def _build_sidebar(self, parent: ttk.Frame) -> None:
-        scan_frame = ttk.LabelFrame(parent, text="扫描范围", style="Section.TLabelframe", padding=12)
-        scan_frame.grid(row=0, column=0, sticky="ew")
-        scan_frame.columnconfigure(0, weight=1)
-
-        ttk.Label(scan_frame, text="根目录").grid(row=0, column=0, sticky="w")
-        ttk.Entry(scan_frame, textvariable=self.root_path_var).grid(row=1, column=0, sticky="ew", pady=(6, 8))
-        browse_row = ttk.Frame(scan_frame)
-        browse_row.grid(row=2, column=0, sticky="ew")
-        browse_row.columnconfigure((0, 1, 2), weight=1)
-        ttk.Button(browse_row, text="选择", command=self._choose_root).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        self.scan_button = ttk.Button(browse_row, text="开始扫描", command=self._start_scan, style="Primary.TButton")
-        self.scan_button.grid(row=0, column=1, sticky="ew", padx=3)
-        self.stop_button = ttk.Button(browse_row, text="停止", command=self._stop_scan)
-        self.stop_button.grid(row=0, column=2, sticky="ew", padx=(6, 0))
-
-        activity_frame = ttk.LabelFrame(parent, text="操作日志", style="Section.TLabelframe", padding=12)
-        activity_frame.grid(row=1, column=0, sticky="nsew", pady=(12, 0))
-        activity_frame.columnconfigure(0, weight=1)
-        activity_frame.rowconfigure(0, weight=1)
-        self.activity_text = self._make_readonly_text(activity_frame, height=10)
-        self.activity_text.grid(row=0, column=0, sticky="nsew")
-        activity_scrollbar = ttk.Scrollbar(activity_frame, orient="vertical", command=self.activity_text.yview)
-        activity_scrollbar.grid(row=0, column=1, sticky="ns", padx=(8, 0))
-        self.activity_text.configure(yscrollcommand=activity_scrollbar.set)
 
     def _build_results(self, parent: ttk.Frame) -> None:
         toolbar = ttk.Frame(parent, style="Panel.TFrame")
