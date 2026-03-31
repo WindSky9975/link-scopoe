@@ -916,13 +916,14 @@ class LinkManagerApp:
         if not message:
             return
         self.activity_messages.append(message)
-        self.activity_messages = self.activity_messages[-120:]
-        self._set_text(self.activity_text, "\n".join(self.activity_messages[-16:]))
+        self._set_text(self.activity_text, "\n".join(self.activity_messages), scroll_to_end=True)
 
-    def _set_text(self, widget: tk.Text, value: str) -> None:
+    def _set_text(self, widget: tk.Text, value: str, scroll_to_end: bool = False) -> None:
         widget.configure(state="normal")
         widget.delete("1.0", "end")
         widget.insert("1.0", value)
+        if scroll_to_end:
+            widget.see("end")
         widget.configure(state="disabled")
 
     def _is_scanning(self) -> bool:
