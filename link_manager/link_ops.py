@@ -33,7 +33,7 @@ def create_link(link_path: str, target_path: str, link_type: str) -> tuple[str, 
 
     if link_type == LINK_TYPE_JUNCTION:
         if not os.path.isdir(resolved_target):
-            raise LinkOperationError("目录联接的目标必须是已存在的文件夹。")
+            raise LinkOperationError("目录联接 (Junction) 的目标必须是已存在的文件夹。")
         _create_junction(link_path, resolved_target)
     elif link_type == LINK_TYPE_DIR_SYMLINK:
         _validate_directory_target(resolved_target)
@@ -58,7 +58,7 @@ def delete_link(link_path: str) -> None:
         raise LinkOperationError(_format_os_error(exc)) from exc
 
     if not getattr(item_stat, "st_file_attributes", 0) & FILE_ATTRIBUTE_REPARSE_POINT:
-        raise LinkOperationError("所选路径不是目录联接或符号链接。")
+        raise LinkOperationError("所选路径不是目录联接 (Junction) 或符号链接 (Symlink)。")
 
     try:
         if stat.S_ISDIR(item_stat.st_mode):
@@ -123,7 +123,7 @@ def _create_junction(link_path: str, target_path: str) -> None:
     )
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip() or "未知错误。"
-        raise LinkOperationError(f"创建目录联接失败。{detail}")
+        raise LinkOperationError(f"创建目录联接 (Junction) 失败。{detail}")
 
 
 def _validate_directory_target(target_path: str) -> None:
@@ -154,7 +154,7 @@ def _expand_user_path(path: str) -> str:
 def _format_os_error(exc: OSError) -> str:
     if getattr(exc, "winerror", None) == 1314:
         return (
-            "权限不足。创建符号链接通常需要管理员权限，或在 Windows 中启用开发者模式。"
+            "权限不足。创建符号链接 (Symlink) 通常需要管理员权限，或在 Windows 中启用开发者模式。"
         )
     if getattr(exc, "winerror", None) == 183:
         return "路径已存在。"

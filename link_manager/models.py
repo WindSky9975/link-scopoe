@@ -6,8 +6,8 @@ from datetime import datetime
 
 
 LINK_TYPE_JUNCTION = "目录联接 (Junction)"
-LINK_TYPE_DIR_SYMLINK = "目录符号链接"
-LINK_TYPE_FILE_SYMLINK = "文件符号链接"
+LINK_TYPE_DIR_SYMLINK = "目录符号链接 (Directory Symlink)"
+LINK_TYPE_FILE_SYMLINK = "文件符号链接 (File Symlink)"
 SUPPORTED_LINK_TYPES = (
     LINK_TYPE_JUNCTION,
     LINK_TYPE_DIR_SYMLINK,

@@ -119,13 +119,17 @@ class CreateLinkDialog(tk.Toplevel):
     def _update_help_text(self) -> None:
         if self.link_type_var.get() == LINK_TYPE_JUNCTION:
             self.help_var.set(
-                "目录联接必须指向已存在的文件夹。符号链接可以指向暂时不存在的路径，"
-                "但目录联接不可以。"
+                "目录联接 (Junction) 必须指向已存在的文件夹。"
+                "符号链接 (Symlink) 可以指向暂时不存在的路径，但目录联接 (Junction) 不可以。"
             )
         elif self.link_type_var.get() == LINK_TYPE_DIR_SYMLINK:
-            self.help_var.set("目录符号链接可以指向已存在或将来才会出现的文件夹。")
+            self.help_var.set(
+                "目录符号链接 (Directory Symlink) 可以指向已存在或将来才会出现的文件夹。"
+            )
         else:
-            self.help_var.set("文件符号链接可以指向已存在或将来才会出现的文件。")
+            self.help_var.set(
+                "文件符号链接 (File Symlink) 可以指向已存在或将来才会出现的文件。"
+            )
 
     def _browse_link_path(self) -> None:
         if self.link_type_var.get() == LINK_TYPE_FILE_SYMLINK:
@@ -290,7 +294,7 @@ class LinkManagerApp:
         ttk.Label(header, text="LinkScope", style="Header.TLabel").grid(row=0, column=0, sticky="w")
         ttk.Label(
             header,
-            text="在 Windows 上查看并管理目录联接和符号链接。",
+            text="在 Windows 上查看并管理目录联接 (Junction) 和符号链接 (Symlink)。",
             style="SubHeader.TLabel",
         ).grid(row=1, column=0, sticky="w", pady=(2, 0))
 
