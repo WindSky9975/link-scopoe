@@ -18,7 +18,6 @@ if __package__ in {None, ""}:
         LinkOperationError,
         create_link,
         delete_link,
-        open_folder,
         open_target,
         reveal_in_explorer,
     )
@@ -34,7 +33,7 @@ if __package__ in {None, ""}:
     )
     from link_manager.scanner import scan_links
 else:
-    from .link_ops import LinkOperationError, create_link, delete_link, open_folder, open_target
+    from .link_ops import LinkOperationError, create_link, delete_link, open_target
     from .link_ops import reveal_in_explorer
     from .models import (
         EVENT_DONE,
@@ -731,7 +730,7 @@ class LinkManagerApp:
         entry = self._get_selected_entry()
         if entry is None:
             return
-        self._open_selected_folder()
+        self._locate_selected()
 
     def _create_link_dialog(self) -> None:
         if self._is_scanning():
@@ -786,15 +785,6 @@ class LinkManagerApp:
         self.status_var.set(f"已删除链接：{entry.path}")
         self._log_activity(f"已删除链接：{entry.path}")
         self._refresh_after_mutation(entry.path)
-
-    def _open_selected_folder(self) -> None:
-        entry = self._get_selected_entry()
-        if entry is None:
-            return
-        try:
-            open_folder(entry.parent)
-        except LinkOperationError as exc:
-            messagebox.showerror("打开目录失败", str(exc))
 
     def _locate_selected(self) -> None:
         entry = self._get_selected_entry()
