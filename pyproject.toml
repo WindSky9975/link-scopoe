@@ -1,0 +1,6 @@
+[project]
+name = "linkscope"
+version = "0.1.0"
+description = "在 Windows 上查看并管理目录联接 (Junction) 和符号链接 (Symlink)"
+requires-python = ">=3.10"
+dependencies = []
