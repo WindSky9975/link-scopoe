@@ -16,14 +16,17 @@ from .models import (
     LinkEntry,
     ScanEvent,
 )
+from .path_utils import normalize_path
 
 FILE_ATTRIBUTE_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 IO_REPARSE_TAG_SYMLINK = getattr(stat, "IO_REPARSE_TAG_SYMLINK", 0xA000000C)
 IO_REPARSE_TAG_MOUNT_POINT = getattr(stat, "IO_REPARSE_TAG_MOUNT_POINT", 0xA0000003)
 
+STATUS_UPDATE_INTERVAL = 40
+
 
 def scan_links(root_path: str, output_queue: "queue.Queue[ScanEvent]", stop_event: Event) -> None:
-    root_path = os.path.abspath(os.path.expanduser(os.path.expandvars(root_path)))
+    root_path = normalize_path(root_path)
     directories_scanned = 0
     links_found = 0
     queued_directories: list[str] = [root_path]
@@ -41,7 +44,7 @@ def scan_links(root_path: str, output_queue: "queue.Queue[ScanEvent]", stop_even
         current_directory = queued_directories.pop()
         directories_scanned += 1
 
-        if directories_scanned == 1 or directories_scanned % 40 == 0:
+        if directories_scanned == 1 or directories_scanned % STATUS_UPDATE_INTERVAL == 0:
             output_queue.put(
                 ScanEvent(
                     kind=EVENT_STATUS,
@@ -150,7 +153,7 @@ def scan_links(root_path: str, output_queue: "queue.Queue[ScanEvent]", stop_even
 
 
 def read_link_entry(path: str) -> LinkEntry | None:
-    path = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    path = normalize_path(path)
     try:
         item_stat = os.stat(path, follow_symlinks=False)
     except (FileNotFoundError, OSError):

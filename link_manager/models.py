@@ -31,7 +31,7 @@ class LinkEntry:
 
     @property
     def name(self) -> str:
-        return self.path.rstrip("\\/").split("\\")[-1] or self.path
+        return os.path.basename(os.path.normpath(self.path)) or self.path
 
     @property
     def parent(self) -> str:

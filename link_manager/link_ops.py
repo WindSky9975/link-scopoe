@@ -5,6 +5,7 @@ import stat
 import subprocess
 
 from .models import LINK_TYPE_DIR_SYMLINK, LINK_TYPE_FILE_SYMLINK, LINK_TYPE_JUNCTION
+from .path_utils import expand_path, normalize_path
 
 CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 FILE_ATTRIBUTE_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
@@ -65,17 +66,6 @@ def delete_link(link_path: str) -> None:
             os.rmdir(link_path)
         else:
             os.unlink(link_path)
-    except OSError as exc:
-        raise LinkOperationError(_format_os_error(exc)) from exc
-
-
-def open_folder(path: str) -> None:
-    path = _normalize_user_path(path)
-    if not os.path.isdir(path):
-        raise LinkOperationError("文件夹不存在。")
-
-    try:
-        os.startfile(path)
     except OSError as exc:
         raise LinkOperationError(_format_os_error(exc)) from exc
 
@@ -143,12 +133,11 @@ def _resolve_input_target(link_path: str, target_path: str) -> str:
 
 
 def _normalize_user_path(path: str) -> str:
-    expanded = _expand_user_path(path)
-    return os.path.abspath(expanded) if expanded else ""
+    return normalize_path(path)
 
 
 def _expand_user_path(path: str) -> str:
-    return os.path.expandvars(os.path.expanduser(path.strip().strip('"')))
+    return expand_path(path)
 
 
 def _format_os_error(exc: OSError) -> str:
