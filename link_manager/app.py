@@ -528,7 +528,7 @@ class LinkManagerApp:
         self.delete_button.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=(0, 6))
         self.open_link_path_button = ttk.Button(action_frame, text="打开链接路径", command=self._open_selected_link_path)
         self.open_link_path_button.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=3)
-        self.open_target_button = ttk.Button(action_frame, text="打开目标", command=self._open_selected_target)
+        self.open_target_button = ttk.Button(action_frame, text="打开目标路径", command=self._open_selected_target)
         self.open_target_button.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=3)
         self.copy_link_button = ttk.Button(action_frame, text="复制链接路径", command=self._copy_selected_path)
         self.copy_link_button.grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(3, 0))
@@ -893,7 +893,7 @@ class LinkManagerApp:
         try:
             open_target(entry.target)
         except LinkOperationError as exc:
-            messagebox.showerror("打开目标失败", str(exc))
+            messagebox.showerror("打开目标路径失败", str(exc))
 
     def _copy_selected_path(self) -> None:
         entry = self._get_selected_entry()
