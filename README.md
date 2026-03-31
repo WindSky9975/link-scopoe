@@ -12,6 +12,8 @@ python main.py
 
 或者直接双击 `run_linkscope.bat`。
 
+如果在 PyCharm 中调试，也可以直接运行 `link_manager/app.py`。
+
 ## 功能
 
 - 选择根目录并递归扫描

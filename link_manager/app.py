@@ -2,23 +2,51 @@ from __future__ import annotations
 
 import os
 import queue
+import sys
 import threading
 import tkinter as tk
+from pathlib import Path
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
-from .link_ops import LinkOperationError, create_link, delete_link, open_folder, open_target
-from .link_ops import reveal_in_explorer
-from .models import (
-    EVENT_DONE,
-    EVENT_ENTRY,
-    EVENT_STATUS,
-    LINK_TYPE_DIR_SYMLINK,
-    LINK_TYPE_FILE_SYMLINK,
-    LINK_TYPE_JUNCTION,
-    SUPPORTED_LINK_TYPES,
-    LinkEntry,
-)
-from .scanner import scan_links
+if __package__ in {None, ""}:
+    project_root = Path(__file__).resolve().parent.parent
+    project_root_str = str(project_root)
+    if project_root_str not in sys.path:
+        sys.path.insert(0, project_root_str)
+
+    from link_manager.link_ops import (
+        LinkOperationError,
+        create_link,
+        delete_link,
+        open_folder,
+        open_target,
+        reveal_in_explorer,
+    )
+    from link_manager.models import (
+        EVENT_DONE,
+        EVENT_ENTRY,
+        EVENT_STATUS,
+        LINK_TYPE_DIR_SYMLINK,
+        LINK_TYPE_FILE_SYMLINK,
+        LINK_TYPE_JUNCTION,
+        SUPPORTED_LINK_TYPES,
+        LinkEntry,
+    )
+    from link_manager.scanner import scan_links
+else:
+    from .link_ops import LinkOperationError, create_link, delete_link, open_folder, open_target
+    from .link_ops import reveal_in_explorer
+    from .models import (
+        EVENT_DONE,
+        EVENT_ENTRY,
+        EVENT_STATUS,
+        LINK_TYPE_DIR_SYMLINK,
+        LINK_TYPE_FILE_SYMLINK,
+        LINK_TYPE_JUNCTION,
+        SUPPORTED_LINK_TYPES,
+        LinkEntry,
+    )
+    from .scanner import scan_links
 
 FILTER_ALL = "全部"
 
@@ -363,8 +391,6 @@ class LinkManagerApp:
         self.scan_button.grid(row=0, column=1, sticky="ew", padx=3)
         self.stop_button = ttk.Button(browse_row, text="停止", command=self._stop_scan)
         self.stop_button.grid(row=0, column=2, sticky="ew", padx=(6, 0))
-        self.refresh_button = ttk.Button(scan_frame, text="刷新当前根目录", command=self._refresh_scan)
-        self.refresh_button.grid(row=3, column=0, sticky="ew", pady=(8, 0))
 
         filter_frame = ttk.LabelFrame(parent, text="筛选", style="Section.TLabelframe", padding=12)
         filter_frame.grid(row=1, column=0, sticky="ew", pady=(12, 0))
@@ -526,12 +552,6 @@ class LinkManagerApp:
         self.scan_thread.start()
         self._set_scan_controls(scanning=True)
         self.root.after(120, self._poll_scan_queue)
-
-    def _refresh_scan(self) -> None:
-        if self._is_scanning():
-            messagebox.showinfo("扫描进行中", "请先停止当前扫描，再执行刷新。")
-            return
-        self._start_scan()
 
     def _stop_scan(self) -> None:
         if self.scan_stop_event:
@@ -857,7 +877,6 @@ class LinkManagerApp:
     def _set_scan_controls(self, scanning: bool) -> None:
         self.scan_button.configure(state="disabled" if scanning else "normal")
         self.stop_button.configure(state="normal" if scanning else "disabled")
-        self.refresh_button.configure(state="disabled" if scanning else "normal")
         self.new_link_button.configure(state="disabled" if scanning else "normal")
         self.delete_button.configure(state="disabled" if scanning else "normal")
         self._set_action_state()
@@ -905,3 +924,7 @@ class LinkManagerApp:
         if self.scan_stop_event:
             self.scan_stop_event.set()
         self.root.destroy()
+
+
+if __name__ == "__main__":
+    LinkManagerApp().run()
