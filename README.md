@@ -53,7 +53,7 @@ python -m unittest discover -s tests
 
 - CI：向 `main` 分支推送或发起 Pull Request 时，自动执行语法编译检查和 `unittest`
 - CD：手动触发工作流或推送 `v*` 标签时，自动打包 Windows 单文件程序并上传构建产物
-- Release：推送 `v1.0.0` 这类标签时，会额外创建 GitHub Release 并附带 zip 包
+- Release：推送 `v1.0.0` 这类标签时，会额外创建 GitHub Release，附带 zip 包并写入仓库内维护的发布说明
 
 发布示例：
 
@@ -61,6 +61,13 @@ python -m unittest discover -s tests
 git tag v0.1.0
 git push origin v0.1.0
 ```
+
+## 发布与下载
+
+- 首个正式版本按 `v0.1.0` 发布
+- 推送 `v*` 标签后，GitHub Actions 会自动构建 `LinkScope.exe` 并生成 `LinkScope-<tag>-windows-x64.zip`
+- Release 页面会包含可直接下载的 Windows 压缩包，以及运行要求和已知限制说明
+- 打包产物为单文件 `exe`，目标用户无需预装 Python
 
 ## 说明
 
