@@ -444,8 +444,8 @@ class LinkManagerApp:
         self.new_link_button.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
         self.delete_button = ttk.Button(action_frame, text="删除所选", command=self._delete_selected, style="Danger.TButton")
         self.delete_button.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=(0, 6))
-        self.locate_button = ttk.Button(action_frame, text="在资源管理器中定位", command=self._locate_selected)
-        self.locate_button.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=3)
+        self.open_link_path_button = ttk.Button(action_frame, text="打开链接路径", command=self._open_selected_link_path)
+        self.open_link_path_button.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=3)
         self.open_target_button = ttk.Button(action_frame, text="打开目标", command=self._open_selected_target)
         self.open_target_button.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=3)
         self.copy_link_button = ttk.Button(action_frame, text="复制链接路径", command=self._copy_selected_path)
@@ -795,6 +795,15 @@ class LinkManagerApp:
         except LinkOperationError as exc:
             messagebox.showerror("定位失败", str(exc))
 
+    def _open_selected_link_path(self) -> None:
+        entry = self._get_selected_entry()
+        if entry is None:
+            return
+        try:
+            open_target(entry.path)
+        except LinkOperationError as exc:
+            messagebox.showerror("打开链接路径失败", str(exc))
+
     def _open_selected_target(self) -> None:
         entry = self._get_selected_entry()
         if entry is None:
@@ -881,7 +890,9 @@ class LinkManagerApp:
         entry = self._get_selected_entry()
         has_selection = entry is not None
 
-        self.locate_button.configure(state="normal" if has_selection else "disabled")
+        self.open_link_path_button.configure(
+            state="normal" if has_selection and entry.target_exists else "disabled"
+        )
         self.copy_link_button.configure(state="normal" if has_selection else "disabled")
         self.copy_target_button.configure(
             state="normal" if has_selection and (entry.target or entry.raw_target) else "disabled"
