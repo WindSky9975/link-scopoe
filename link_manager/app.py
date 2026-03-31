@@ -216,7 +216,6 @@ class LinkManagerApp:
         self.root_path_var = tk.StringVar()
         self.type_filter_var = tk.StringVar(value=FILTER_ALL)
         self.target_drive_filter_var = tk.StringVar(value=FILTER_ALL)
-        self.search_var = tk.StringVar()
         self.status_var = tk.StringVar(value="就绪。")
         self.summary_var = tk.StringVar(value="显示 0 / 总计 0")
 
@@ -235,7 +234,6 @@ class LinkManagerApp:
         self.sidebar_window_id: int | None = None
         self.filter_comboboxes: list[ttk.Combobox] = []
 
-        self.search_var.trace_add("write", self._handle_filter_change)
         self.type_filter_var.trace_add("write", self._handle_filter_change)
         self.target_drive_filter_var.trace_add("write", self._handle_filter_change)
 
@@ -378,9 +376,6 @@ class LinkManagerApp:
         self._dismiss_open_filter_comboboxes(event.widget)
 
     def _handle_filter_combobox_mousewheel(self, event: tk.Event) -> str:
-        units = self._mousewheel_units(event)
-        if units != 0 and self.sidebar_canvas is not None:
-            self.sidebar_canvas.yview_scroll(units, "units")
         return "break"
 
     def _suppress_filter_combobox_key_change(self, _event: tk.Event) -> str:
@@ -471,34 +466,8 @@ class LinkManagerApp:
         self.stop_button = ttk.Button(browse_row, text="停止", command=self._stop_scan)
         self.stop_button.grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
-        filter_frame = ttk.LabelFrame(parent, text="筛选", style="Section.TLabelframe", padding=12)
-        filter_frame.grid(row=1, column=0, sticky="ew", pady=(12, 0))
-        filter_frame.columnconfigure(0, weight=1)
-        ttk.Label(filter_frame, text="链接类型").grid(row=0, column=0, sticky="w")
-        self.type_filter_combo = ttk.Combobox(
-            filter_frame,
-            textvariable=self.type_filter_var,
-            values=(FILTER_ALL,) + SUPPORTED_LINK_TYPES,
-            state="readonly",
-        )
-        self.type_filter_combo.grid(row=1, column=0, sticky="ew", pady=(6, 8))
-        self._configure_filter_combobox(self.type_filter_combo)
-        ttk.Label(filter_frame, text="目标盘符").grid(row=2, column=0, sticky="w")
-        self.target_drive_combo = ttk.Combobox(
-            filter_frame,
-            textvariable=self.target_drive_filter_var,
-            values=(FILTER_ALL,),
-            state="readonly",
-        )
-        self.target_drive_combo.grid(row=3, column=0, sticky="ew", pady=(6, 8))
-        self._configure_filter_combobox(self.target_drive_combo)
-        ttk.Label(filter_frame, text="搜索").grid(row=4, column=0, sticky="w")
-        ttk.Entry(filter_frame, textvariable=self.search_var).grid(row=5, column=0, sticky="ew", pady=(6, 8))
-        ttk.Button(filter_frame, text="清空筛选", command=self._clear_filters).grid(row=6, column=0, sticky="ew")
-        ttk.Label(filter_frame, textvariable=self.summary_var, foreground="#58667d").grid(row=7, column=0, sticky="w", pady=(10, 0))
-
         action_frame = ttk.LabelFrame(parent, text="操作", style="Section.TLabelframe", padding=12)
-        action_frame.grid(row=2, column=0, sticky="ew", pady=(12, 0))
+        action_frame.grid(row=1, column=0, sticky="ew", pady=(12, 0))
         action_frame.columnconfigure((0, 1), weight=1)
         self.new_link_button = ttk.Button(action_frame, text="新建链接", command=self._create_link_dialog)
         self.new_link_button.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
@@ -514,7 +483,7 @@ class LinkManagerApp:
         self.copy_target_button.grid(row=2, column=1, sticky="ew", padx=(6, 0), pady=(3, 0))
 
         activity_frame = ttk.LabelFrame(parent, text="操作日志", style="Section.TLabelframe", padding=12)
-        activity_frame.grid(row=3, column=0, sticky="nsew", pady=(12, 0))
+        activity_frame.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
         activity_frame.columnconfigure(0, weight=1)
         activity_frame.rowconfigure(0, weight=1)
         self.activity_text = self._make_readonly_text(activity_frame, height=10)
@@ -527,6 +496,30 @@ class LinkManagerApp:
         toolbar = ttk.Frame(parent, style="Panel.TFrame")
         toolbar.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         ttk.Label(toolbar, text="结果列表", font=("Segoe UI", 12, "bold")).pack(side="left")
+
+        ttk.Label(toolbar, text="类型：").pack(side="left", padx=(18, 0))
+        self.type_filter_combo = ttk.Combobox(
+            toolbar,
+            textvariable=self.type_filter_var,
+            values=(FILTER_ALL,) + SUPPORTED_LINK_TYPES,
+            state="readonly",
+            width=22,
+        )
+        self.type_filter_combo.pack(side="left", padx=(4, 0))
+        self._configure_filter_combobox(self.type_filter_combo)
+
+        ttk.Label(toolbar, text="盘符：").pack(side="left", padx=(14, 0))
+        self.target_drive_combo = ttk.Combobox(
+            toolbar,
+            textvariable=self.target_drive_filter_var,
+            values=(FILTER_ALL,),
+            state="readonly",
+            width=8,
+        )
+        self.target_drive_combo.pack(side="left", padx=(4, 0))
+        self._configure_filter_combobox(self.target_drive_combo)
+
+        ttk.Label(toolbar, textvariable=self.summary_var, foreground="#58667d").pack(side="right")
 
         table_frame = ttk.Frame(parent, style="Panel.TFrame")
         table_frame.grid(row=1, column=0, sticky="nsew")
@@ -691,7 +684,6 @@ class LinkManagerApp:
     def _get_filtered_entries(self) -> list[LinkEntry]:
         type_filter = self.type_filter_var.get().strip()
         target_drive_filter = self.target_drive_filter_var.get().strip()
-        search_text = self.search_var.get().strip().lower()
         filtered: list[LinkEntry] = []
 
         for entry in self.entries:
@@ -699,18 +691,6 @@ class LinkManagerApp:
                 continue
             if not self._matches_target_drive_filter(entry, target_drive_filter):
                 continue
-            if search_text:
-                haystack = " ".join(
-                    (
-                        entry.name,
-                        entry.path,
-                        entry.target,
-                        entry.link_type,
-                        entry.status_text,
-                    )
-                ).lower()
-                if search_text not in haystack:
-                    continue
             filtered.append(entry)
 
         sort_key = self._sort_key_for(self.sort_column)
@@ -900,11 +880,6 @@ class LinkManagerApp:
             return os.path.commonpath([root_abs, path_abs]) == root_abs
         except ValueError:
             return False
-
-    def _clear_filters(self) -> None:
-        self.type_filter_var.set(FILTER_ALL)
-        self.target_drive_filter_var.set(FILTER_ALL)
-        self.search_var.set("")
 
     def _get_selected_entry(self) -> LinkEntry | None:
         path = self._get_selected_path()
