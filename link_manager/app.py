@@ -445,16 +445,14 @@ class LinkManagerApp:
         self.new_link_button.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
         self.delete_button = ttk.Button(action_frame, text="删除所选", command=self._delete_selected, style="Danger.TButton")
         self.delete_button.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=(0, 6))
-        self.open_folder_button = ttk.Button(action_frame, text="打开链接所在目录", command=self._open_selected_folder)
-        self.open_folder_button.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=3)
         self.locate_button = ttk.Button(action_frame, text="在资源管理器中定位", command=self._locate_selected)
-        self.locate_button.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=3)
+        self.locate_button.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=3)
         self.open_target_button = ttk.Button(action_frame, text="打开目标", command=self._open_selected_target)
-        self.open_target_button.grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=3)
+        self.open_target_button.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=3)
         self.copy_link_button = ttk.Button(action_frame, text="复制链接路径", command=self._copy_selected_path)
-        self.copy_link_button.grid(row=2, column=1, sticky="ew", padx=(6, 0), pady=3)
+        self.copy_link_button.grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(3, 0))
         self.copy_target_button = ttk.Button(action_frame, text="复制目标路径", command=self._copy_selected_target)
-        self.copy_target_button.grid(row=3, column=0, sticky="ew", padx=(0, 6), pady=(3, 0))
+        self.copy_target_button.grid(row=2, column=1, sticky="ew", padx=(6, 0), pady=(3, 0))
 
         activity_frame = ttk.LabelFrame(parent, text="操作日志", style="Section.TLabelframe", padding=12)
         activity_frame.grid(row=4, column=0, sticky="nsew", pady=(12, 0))
@@ -893,7 +891,6 @@ class LinkManagerApp:
         entry = self._get_selected_entry()
         has_selection = entry is not None
 
-        self.open_folder_button.configure(state="normal" if has_selection else "disabled")
         self.locate_button.configure(state="normal" if has_selection else "disabled")
         self.copy_link_button.configure(state="normal" if has_selection else "disabled")
         self.copy_target_button.configure(
