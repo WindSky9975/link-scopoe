@@ -1,26 +1,26 @@
-﻿## LinkScope Release
+﻿## LinkScope 发布说明
 
-LinkScope is a local Windows desktop tool for scanning and managing directory junctions and symbolic links.
+LinkScope 是一个本地 Windows 桌面工具，用于扫描和管理目录联接与符号链接。
 
-### Included In This Release
+### 本次发布包含
 
 - `LinkScope-*-windows-x64.zip`
-- `LinkScope.exe` packaged as a single-file Windows application
+- 单文件 Windows 应用程序 `LinkScope.exe`
 
-### Highlights
+### 主要功能
 
-- Scan a root folder recursively for junctions and symlinks
-- Filter results by link type, link drive, and target drive
-- Create or delete junctions and symlinks from the desktop UI
-- Open link paths, open targets, and reveal items in File Explorer
+- 递归扫描根目录下的目录联接和符号链接
+- 按链接类型、链接盘符和目标盘符筛选结果
+- 在桌面界面中创建或删除目录联接和符号链接
+- 打开链接路径、打开目标路径，并在资源管理器中定位项目
 
-### Requirements
+### 运行要求
 
-- Windows with NTFS support
-- No Python runtime is required for the packaged `exe`
-- Creating symlinks may require administrator privileges or Windows Developer Mode
+- Windows 系统，且文件系统支持 NTFS
+- 使用打包后的 `exe` 无需额外安装 Python
+- 创建符号链接可能需要管理员权限，或启用 Windows 开发者模式
 
-### Notes
+### 说明
 
-- This project is Windows-only
-- Directory junction targets must already exist
+- 本项目仅支持 Windows
+- 创建目录联接时，目标文件夹必须已经存在
