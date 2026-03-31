@@ -1,3 +1,9 @@
+"""主应用窗口模块。
+
+包含 LinkManagerApp 类，负责 GUI 布局、扫描调度、
+筛选排序、右键菜单和用户交互。
+"""
+
 from __future__ import annotations
 
 import os
@@ -21,12 +27,14 @@ from .models import (
 from .path_utils import normalize_path
 from .scanner import read_link_entry, scan_links
 
-SCAN_POLL_INTERVAL_MS = 120
-WINDOW_GEOMETRY = "1320x820"
-WINDOW_MIN_SIZE = (1080, 700)
+SCAN_POLL_INTERVAL_MS = 120      # 轮询扫描队列的间隔（毫秒）
+WINDOW_GEOMETRY = "1320x820"     # 初始窗口尺寸
+WINDOW_MIN_SIZE = (1080, 700)    # 最小窗口尺寸
 
 
 class LinkManagerApp:
+    """LinkScope 主应用窗口。"""
+
     def __init__(self) -> None:
         self.root = tk.Tk()
         self.root.title("LinkScope 链接管理器")
@@ -184,6 +192,7 @@ class LinkManagerApp:
         return 0
 
     def _dismiss_open_filter_comboboxes(self, widget: tk.Misc | None) -> None:
+        """关闭所有已展开的筛选下拉框（点击或滚轮时触发）。"""
         for combobox in self.filter_comboboxes:
             if not self._is_filter_combobox_posted(combobox):
                 continue
@@ -331,6 +340,7 @@ class LinkManagerApp:
             self._log_activity(f"已选择根目录：{selected}")
 
     def _start_scan(self) -> None:
+        """启动后台扫描线程。"""
         root_path = self.root_path_var.get().strip()
         if not root_path:
             messagebox.showerror("缺少根目录", "请先选择要扫描的根目录。")
@@ -365,6 +375,7 @@ class LinkManagerApp:
             self._log_activity("已请求停止扫描。")
 
     def _poll_scan_queue(self) -> None:
+        """定时从扫描队列中读取事件，更新 UI。通过 root.after 循环调用。"""
         entries_changed = False
 
         while True:
@@ -398,6 +409,7 @@ class LinkManagerApp:
         self._refresh_tree()
 
     def _refresh_tree(self) -> None:
+        """根据当前筛选条件和排序重新填充结果表格。"""
         selected_path = self._get_selected_path()
         self._refresh_drive_filter_options()
         filtered_entries = self._get_filtered_entries()
@@ -428,6 +440,7 @@ class LinkManagerApp:
             self.tree.focus(selected_iid)
 
     def _get_filtered_entries(self) -> list[LinkEntry]:
+        """按类型和盘符筛选条目，并按当前排序列排序后返回。"""
         type_filter = self.type_filter_var.get().strip()
         link_drive_filter = self.link_drive_filter_var.get().strip()
         target_drive_filter = self.target_drive_filter_var.get().strip()
@@ -446,6 +459,7 @@ class LinkManagerApp:
         return sorted(filtered, key=sort_key, reverse=self.sort_descending)
 
     def _refresh_drive_filter_options(self) -> None:
+        """刷新链接盘符和目标盘符下拉框的可选值。"""
         self._updating_filters = True
         try:
             link_drives = [FILTER_ALL, *self._collect_drive_values(self._extract_link_drive)]
@@ -590,6 +604,7 @@ class LinkManagerApp:
         self._refresh_after_mutation(entry.path)
 
     def _with_selected_entry(self, action, error_title: str = "") -> None:
+        """获取当前选中条目并执行操作，自动处理空选择和 LinkOperationError。"""
         entry = self._get_selected_entry()
         if entry is None:
             return
@@ -633,6 +648,7 @@ class LinkManagerApp:
         self.status_var.set("已复制目标路径。")
 
     def _refresh_after_mutation(self, changed_path: str) -> None:
+        """链接创建或删除后，重新读取该路径并刷新表格。"""
         changed_abs = os.path.abspath(changed_path)
         self._remove_entry_by_path(changed_abs)
         if self._is_path_under_current_root(changed_abs):

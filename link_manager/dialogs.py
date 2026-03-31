@@ -1,3 +1,8 @@
+"""对话框模块。
+
+包含新建链接对话框 (CreateLinkDialog) 和筛选相关常量。
+"""
+
 from __future__ import annotations
 
 import os
@@ -11,10 +16,15 @@ from .models import (
     SUPPORTED_LINK_TYPES,
 )
 
-FILTER_ALL = "全部"
+FILTER_ALL = "全部"  # 筛选下拉框的"全部"选项
 
 
 class CreateLinkDialog(tk.Toplevel):
+    """新建链接的模态对话框。
+
+    用户选择链接类型、链接路径和目标路径后，
+    结果存储在 self.result 中（三元组或 None）。
+    """
     def __init__(self, master: tk.Misc, initial_folder: str = "") -> None:
         super().__init__(master)
         self.title("新建链接")
@@ -81,6 +91,7 @@ class CreateLinkDialog(tk.Toplevel):
         self._update_help_text()
 
     def _update_help_text(self) -> None:
+        """根据当前选择的链接类型更新帮助提示文本。"""
         if self.link_type_var.get() == LINK_TYPE_JUNCTION:
             self.help_var.set(
                 "目录联接 (Junction) 必须指向已存在的文件夹。"

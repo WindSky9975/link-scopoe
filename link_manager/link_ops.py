@@ -1,3 +1,9 @@
+"""链接操作模块。
+
+提供链接的创建、删除、打开和定位功能，
+包含 Windows 特定的错误码处理和权限提示。
+"""
+
 from __future__ import annotations
 
 import os
@@ -7,15 +13,16 @@ import subprocess
 from .models import LINK_TYPE_DIR_SYMLINK, LINK_TYPE_FILE_SYMLINK, LINK_TYPE_JUNCTION
 from .path_utils import expand_path, normalize_path
 
-CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+CREATE_NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)  # 隐藏子进程窗口
 FILE_ATTRIBUTE_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 
 
 class LinkOperationError(RuntimeError):
-    """Raised when a link management action fails."""
+    """链接操作失败时抛出的异常，携带用户友好的中文错误信息。"""
 
 
 def create_link(link_path: str, target_path: str, link_type: str) -> tuple[str, str]:
+    """创建链接。根据 link_type 创建联接或符号链接，返回 (链接路径, 目标路径)。"""
     link_path = _normalize_user_path(link_path)
     target_path = _expand_user_path(target_path)
 
@@ -49,6 +56,7 @@ def create_link(link_path: str, target_path: str, link_type: str) -> tuple[str, 
 
 
 def delete_link(link_path: str) -> None:
+    """删除链接（仅删除链接本身，不影响目标）。"""
     link_path = _normalize_user_path(link_path)
     if not os.path.lexists(link_path):
         raise LinkOperationError("所选链接已不存在。")
@@ -71,6 +79,7 @@ def delete_link(link_path: str) -> None:
 
 
 def reveal_in_explorer(path: str) -> None:
+    """在 Windows 资源管理器中定位并选中指定路径。"""
     path = _normalize_user_path(path)
     if not os.path.lexists(path):
         raise LinkOperationError("所选路径已不存在。")
@@ -85,6 +94,7 @@ def reveal_in_explorer(path: str) -> None:
 
 
 def open_target(path: str) -> None:
+    """使用系统默认方式打开指定路径。"""
     path = _normalize_user_path(path)
     if not os.path.exists(path):
         raise LinkOperationError("目标路径不存在。")
@@ -96,6 +106,7 @@ def open_target(path: str) -> None:
 
 
 def _create_symbolic_link(link_path: str, target_path: str, target_is_directory: bool) -> None:
+    """通过 os.symlink 创建符号链接。"""
     try:
         os.symlink(target_path, link_path, target_is_directory=target_is_directory)
     except OSError as exc:
@@ -103,6 +114,7 @@ def _create_symbolic_link(link_path: str, target_path: str, target_is_directory:
 
 
 def _create_junction(link_path: str, target_path: str) -> None:
+    """通过 cmd /c mklink /J 创建目录联接。"""
     command = ["cmd", "/c", "mklink", "/J", link_path, target_path]
     completed = subprocess.run(
         command,
@@ -127,6 +139,7 @@ def _validate_file_target(target_path: str) -> None:
 
 
 def _resolve_input_target(link_path: str, target_path: str) -> str:
+    """解析用户输入的目标路径。相对路径基于链接所在目录解析。"""
     if os.path.isabs(target_path):
         return os.path.normpath(target_path)
     return os.path.normpath(os.path.abspath(os.path.join(os.path.dirname(link_path), target_path)))
@@ -141,6 +154,7 @@ def _expand_user_path(path: str) -> str:
 
 
 def _format_os_error(exc: OSError) -> str:
+    """将 OSError 转换为用户友好的中文错误信息，特殊处理常见 Windows 错误码。"""
     if getattr(exc, "winerror", None) == 1314:
         return (
             "权限不足。创建符号链接 (Symlink) 通常需要管理员权限，或在 Windows 中启用开发者模式。"

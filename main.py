@@ -1,3 +1,5 @@
+"""LinkScope 应用入口。"""
+
 from link_manager.app import LinkManagerApp
 
 

@@ -1,3 +1,9 @@
+"""文件系统扫描引擎。
+
+在后台线程中递归扫描指定目录，识别 NTFS 重解析点（联接和符号链接），
+通过队列将扫描结果和进度事件传递给 GUI 主线程。
+"""
+
 from __future__ import annotations
 
 import os
@@ -18,14 +24,20 @@ from .models import (
 )
 from .path_utils import normalize_path
 
+# ── Windows 重解析点相关常量（兼容非 Windows 平台的 fallback 值）──
+
 FILE_ATTRIBUTE_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 IO_REPARSE_TAG_SYMLINK = getattr(stat, "IO_REPARSE_TAG_SYMLINK", 0xA000000C)
 IO_REPARSE_TAG_MOUNT_POINT = getattr(stat, "IO_REPARSE_TAG_MOUNT_POINT", 0xA0000003)
 
-STATUS_UPDATE_INTERVAL = 40
+STATUS_UPDATE_INTERVAL = 40  # 每扫描多少个文件夹发送一次进度更新
 
 
 def scan_links(root_path: str, output_queue: "queue.Queue[ScanEvent]", stop_event: Event) -> None:
+    """从 root_path 开始递归扫描链接，结果通过 output_queue 传递。
+
+    支持通过 stop_event 协作式取消。在后台线程中运行。
+    """
     root_path = normalize_path(root_path)
     directories_scanned = 0
     links_found = 0
@@ -153,6 +165,7 @@ def scan_links(root_path: str, output_queue: "queue.Queue[ScanEvent]", stop_even
 
 
 def read_link_entry(path: str) -> LinkEntry | None:
+    """读取单个路径，如果是已知链接类型则返回 LinkEntry，否则返回 None。"""
     path = normalize_path(path)
     try:
         item_stat = os.stat(path, follow_symlinks=False)
@@ -165,6 +178,7 @@ def read_link_entry(path: str) -> LinkEntry | None:
 
 
 def _build_link_entry(path: str, item_stat: os.stat_result) -> LinkEntry | None:
+    """根据 stat 信息构建 LinkEntry，读取目标路径并检查其是否存在。"""
     link_type = _link_type_from_stat(item_stat)
     if not link_type:
         return None
@@ -191,10 +205,12 @@ def _build_link_entry(path: str, item_stat: os.stat_result) -> LinkEntry | None:
 
 
 def _is_reparse_point(item_stat: os.stat_result) -> bool:
+    """判断文件是否为 NTFS 重解析点。"""
     return bool(getattr(item_stat, "st_file_attributes", 0) & FILE_ATTRIBUTE_REPARSE_POINT)
 
 
 def _link_type_from_stat(item_stat: os.stat_result) -> str:
+    """根据重解析标签判断链接类型，不支持的类型返回空字符串。"""
     reparse_tag = getattr(item_stat, "st_reparse_tag", 0)
     is_directory = stat.S_ISDIR(item_stat.st_mode)
 
@@ -208,6 +224,7 @@ def _link_type_from_stat(item_stat: os.stat_result) -> str:
 
 
 def _resolve_link_target(link_path: str, raw_target: str) -> str:
+    """将原始目标路径解析为规范化的绝对路径。相对路径基于链接所在目录解析。"""
     cleaned_target = _clean_windows_target(raw_target)
     if not cleaned_target:
         return ""
@@ -219,6 +236,7 @@ def _resolve_link_target(link_path: str, raw_target: str) -> str:
 
 
 def _clean_windows_target(raw_target: str) -> str:
+    """去除 Windows 设备路径前缀（\\\\?\\、\\??\\、\\\\?\\UNC\\）。"""
     if raw_target.startswith("\\\\?\\UNC\\"):
         return "\\" + raw_target[7:]
     if raw_target.startswith("\\\\?\\"):
