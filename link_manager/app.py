@@ -357,13 +357,9 @@ class LinkManagerApp:
         if self.sidebar_canvas is None or not self._is_sidebar_widget(event.widget):
             return None
 
-        delta = getattr(event, "delta", 0)
-        if not delta:
-            return None
-
-        units = -int(delta / 120)
+        units = self._mousewheel_units(event)
         if units == 0:
-            units = -1 if delta > 0 else 1
+            return None
 
         if event.widget == self.activity_text:
             self.activity_text.yview_scroll(units, "units")
@@ -371,6 +367,42 @@ class LinkManagerApp:
 
         self.sidebar_canvas.yview_scroll(units, "units")
         return "break"
+
+    def _handle_filter_combobox_mousewheel(self, event: tk.Event) -> str:
+        units = self._mousewheel_units(event)
+        if units != 0 and self.sidebar_canvas is not None:
+            self.sidebar_canvas.yview_scroll(units, "units")
+        return "break"
+
+    def _suppress_filter_combobox_key_change(self, _event: tk.Event) -> str:
+        return "break"
+
+    def _blur_filter_combobox(self, _event: object = None) -> None:
+        if self.sidebar_canvas is not None:
+            self.root.after_idle(self.sidebar_canvas.focus_set)
+
+    def _configure_filter_combobox(self, combobox: ttk.Combobox) -> None:
+        combobox.bind("<MouseWheel>", self._handle_filter_combobox_mousewheel)
+        combobox.bind("<Button-4>", self._handle_filter_combobox_mousewheel)
+        combobox.bind("<Button-5>", self._handle_filter_combobox_mousewheel)
+        for sequence in ("<Up>", "<Down>", "<Prior>", "<Next>", "<Home>", "<End>"):
+            combobox.bind(sequence, self._suppress_filter_combobox_key_change)
+        combobox.bind("<<ComboboxSelected>>", self._blur_filter_combobox, add="+")
+
+    def _mousewheel_units(self, event: tk.Event) -> int:
+        delta = getattr(event, "delta", 0)
+        if delta:
+            units = -int(delta / 120)
+            if units == 0:
+                return -1 if delta > 0 else 1
+            return units
+
+        num = getattr(event, "num", None)
+        if num == 4:
+            return -1
+        if num == 5:
+            return 1
+        return 0
 
     def _is_sidebar_widget(self, widget: tk.Misc | None) -> bool:
         current = widget
@@ -400,12 +432,14 @@ class LinkManagerApp:
         filter_frame.grid(row=1, column=0, sticky="ew", pady=(12, 0))
         filter_frame.columnconfigure(0, weight=1)
         ttk.Label(filter_frame, text="链接类型").grid(row=0, column=0, sticky="w")
-        ttk.Combobox(
+        self.type_filter_combo = ttk.Combobox(
             filter_frame,
             textvariable=self.type_filter_var,
             values=(FILTER_ALL,) + SUPPORTED_LINK_TYPES,
             state="readonly",
-        ).grid(row=1, column=0, sticky="ew", pady=(6, 8))
+        )
+        self.type_filter_combo.grid(row=1, column=0, sticky="ew", pady=(6, 8))
+        self._configure_filter_combobox(self.type_filter_combo)
         ttk.Label(filter_frame, text="目标盘符").grid(row=2, column=0, sticky="w")
         self.target_drive_combo = ttk.Combobox(
             filter_frame,
@@ -414,6 +448,7 @@ class LinkManagerApp:
             state="readonly",
         )
         self.target_drive_combo.grid(row=3, column=0, sticky="ew", pady=(6, 8))
+        self._configure_filter_combobox(self.target_drive_combo)
         ttk.Label(filter_frame, text="搜索").grid(row=4, column=0, sticky="w")
         ttk.Entry(filter_frame, textvariable=self.search_var).grid(row=5, column=0, sticky="ew", pady=(6, 8))
         ttk.Button(filter_frame, text="清空筛选", command=self._clear_filters).grid(row=6, column=0, sticky="ew")
