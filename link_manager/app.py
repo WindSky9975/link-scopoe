@@ -365,6 +365,11 @@ class LinkManagerApp:
         units = -int(delta / 120)
         if units == 0:
             units = -1 if delta > 0 else 1
+
+        if event.widget == self.activity_text:
+            self.activity_text.yview_scroll(units, "units")
+            return "break"
+
         self.sidebar_canvas.yview_scroll(units, "units")
         return "break"
 
@@ -457,6 +462,9 @@ class LinkManagerApp:
         activity_frame.rowconfigure(0, weight=1)
         self.activity_text = self._make_readonly_text(activity_frame, height=10)
         self.activity_text.grid(row=0, column=0, sticky="nsew")
+        activity_scrollbar = ttk.Scrollbar(activity_frame, orient="vertical", command=self.activity_text.yview)
+        activity_scrollbar.grid(row=0, column=1, sticky="ns", padx=(8, 0))
+        self.activity_text.configure(yscrollcommand=activity_scrollbar.set)
 
     def _build_results(self, parent: ttk.Frame) -> None:
         toolbar = ttk.Frame(parent, style="Panel.TFrame")
