@@ -233,13 +233,17 @@ class LinkManagerApp:
         self.sidebar_canvas: tk.Canvas | None = None
         self.sidebar_content: ttk.Frame | None = None
         self.sidebar_window_id: int | None = None
+        self.filter_comboboxes: list[ttk.Combobox] = []
 
         self.search_var.trace_add("write", self._handle_filter_change)
         self.type_filter_var.trace_add("write", self._handle_filter_change)
         self.target_drive_filter_var.trace_add("write", self._handle_filter_change)
 
         self._build_layout()
+        self.root.bind_all("<Button-1>", self._handle_global_click, add="+")
         self.root.bind_all("<MouseWheel>", self._handle_global_mousewheel, add="+")
+        self.root.bind_all("<Button-4>", self._handle_global_mousewheel, add="+")
+        self.root.bind_all("<Button-5>", self._handle_global_mousewheel, add="+")
         self._set_action_state()
 
     def run(self) -> None:
@@ -354,6 +358,8 @@ class LinkManagerApp:
         self._sync_sidebar_scroll_region()
 
     def _handle_global_mousewheel(self, event: tk.Event) -> str | None:
+        self._dismiss_open_filter_comboboxes(event.widget)
+
         if self.sidebar_canvas is None or not self._is_sidebar_widget(event.widget):
             return None
 
@@ -367,6 +373,9 @@ class LinkManagerApp:
 
         self.sidebar_canvas.yview_scroll(units, "units")
         return "break"
+
+    def _handle_global_click(self, event: tk.Event) -> None:
+        self._dismiss_open_filter_comboboxes(event.widget)
 
     def _handle_filter_combobox_mousewheel(self, event: tk.Event) -> str:
         units = self._mousewheel_units(event)
@@ -382,6 +391,7 @@ class LinkManagerApp:
             self.root.after_idle(self.sidebar_canvas.focus_set)
 
     def _configure_filter_combobox(self, combobox: ttk.Combobox) -> None:
+        self.filter_comboboxes.append(combobox)
         combobox.bind("<MouseWheel>", self._handle_filter_combobox_mousewheel)
         combobox.bind("<Button-4>", self._handle_filter_combobox_mousewheel)
         combobox.bind("<Button-5>", self._handle_filter_combobox_mousewheel)
@@ -403,6 +413,39 @@ class LinkManagerApp:
         if num == 5:
             return 1
         return 0
+
+    def _dismiss_open_filter_comboboxes(self, widget: tk.Misc | None) -> None:
+        for combobox in self.filter_comboboxes:
+            if not self._is_filter_combobox_posted(combobox):
+                continue
+            if self._is_filter_combobox_related_widget(combobox, widget):
+                continue
+            self.root.tk.call("ttk::combobox::Unpost", str(combobox))
+
+    def _is_filter_combobox_posted(self, combobox: ttk.Combobox) -> bool:
+        popdown = self._filter_combobox_popdown_path(combobox)
+        return bool(int(self.root.tk.call("winfo", "ismapped", popdown)))
+
+    def _is_filter_combobox_related_widget(
+        self,
+        combobox: ttk.Combobox,
+        widget: tk.Misc | None,
+    ) -> bool:
+        current = widget
+        while current is not None:
+            if current == combobox:
+                return True
+            current = current.master
+
+        if widget is None:
+            return False
+
+        widget_path = str(widget)
+        popdown = self._filter_combobox_popdown_path(combobox)
+        return widget_path == popdown or widget_path.startswith(popdown + ".")
+
+    def _filter_combobox_popdown_path(self, combobox: ttk.Combobox) -> str:
+        return str(self.root.tk.call("ttk::combobox::PopdownWindow", str(combobox)))
 
     def _is_sidebar_widget(self, widget: tk.Misc | None) -> bool:
         current = widget
