@@ -466,24 +466,8 @@ class LinkManagerApp:
         self.stop_button = ttk.Button(browse_row, text="停止", command=self._stop_scan)
         self.stop_button.grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
-        action_frame = ttk.LabelFrame(parent, text="操作", style="Section.TLabelframe", padding=12)
-        action_frame.grid(row=1, column=0, sticky="ew", pady=(12, 0))
-        action_frame.columnconfigure((0, 1), weight=1)
-        self.new_link_button = ttk.Button(action_frame, text="新建链接", command=self._create_link_dialog)
-        self.new_link_button.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
-        self.delete_button = ttk.Button(action_frame, text="删除所选", command=self._delete_selected, style="Danger.TButton")
-        self.delete_button.grid(row=0, column=1, sticky="ew", padx=(6, 0), pady=(0, 6))
-        self.open_link_path_button = ttk.Button(action_frame, text="打开链接路径", command=self._open_selected_link_path)
-        self.open_link_path_button.grid(row=1, column=0, sticky="ew", padx=(0, 6), pady=3)
-        self.open_target_button = ttk.Button(action_frame, text="打开目标路径", command=self._open_selected_target)
-        self.open_target_button.grid(row=1, column=1, sticky="ew", padx=(6, 0), pady=3)
-        self.copy_link_button = ttk.Button(action_frame, text="复制链接路径", command=self._copy_selected_path)
-        self.copy_link_button.grid(row=2, column=0, sticky="ew", padx=(0, 6), pady=(3, 0))
-        self.copy_target_button = ttk.Button(action_frame, text="复制目标路径", command=self._copy_selected_target)
-        self.copy_target_button.grid(row=2, column=1, sticky="ew", padx=(6, 0), pady=(3, 0))
-
         activity_frame = ttk.LabelFrame(parent, text="操作日志", style="Section.TLabelframe", padding=12)
-        activity_frame.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
+        activity_frame.grid(row=1, column=0, sticky="nsew", pady=(12, 0))
         activity_frame.columnconfigure(0, weight=1)
         activity_frame.rowconfigure(0, weight=1)
         self.activity_text = self._make_readonly_text(activity_frame, height=10)
@@ -520,6 +504,8 @@ class LinkManagerApp:
         self._configure_filter_combobox(self.target_drive_combo)
 
         ttk.Label(toolbar, textvariable=self.summary_var, foreground="#58667d").pack(side="right")
+        self.new_link_button = ttk.Button(toolbar, text="新建链接", command=self._create_link_dialog)
+        self.new_link_button.pack(side="right", padx=(10, 10))
 
         table_frame = ttk.Frame(parent, style="Panel.TFrame")
         table_frame.grid(row=1, column=0, sticky="nsew")
@@ -558,6 +544,18 @@ class LinkManagerApp:
         horizontal_scroll.grid(row=1, column=0, sticky="ew")
         self.tree.bind("<<TreeviewSelect>>", self._on_selection_changed)
         self.tree.bind("<Double-1>", self._on_double_click)
+        self.tree.bind("<Button-3>", self._on_right_click)
+
+        self.context_menu = tk.Menu(self.tree, tearoff=0)
+        self.context_menu.add_command(label="定位到资源管理器", command=self._locate_selected)
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label="打开链接路径", command=self._open_selected_link_path)
+        self.context_menu.add_command(label="打开目标路径", command=self._open_selected_target)
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label="复制链接路径", command=self._copy_selected_path)
+        self.context_menu.add_command(label="复制目标路径", command=self._copy_selected_target)
+        self.context_menu.add_separator()
+        self.context_menu.add_command(label="删除所选", command=self._delete_selected)
 
     def _make_readonly_text(self, parent: tk.Misc, height: int) -> tk.Text:
         widget = tk.Text(
@@ -759,6 +757,24 @@ class LinkManagerApp:
             return
         self._locate_selected()
 
+    def _on_right_click(self, event: tk.Event) -> None:
+        row_id = self.tree.identify_row(event.y)
+        if not row_id:
+            return
+        self.tree.selection_set(row_id)
+        self.tree.focus(row_id)
+
+        entry = self._get_selected_entry()
+        if entry is None:
+            return
+
+        has_target = bool(entry.target or entry.raw_target)
+        self.context_menu.entryconfigure("打开链接路径", state="normal" if entry.target_exists else "disabled")
+        self.context_menu.entryconfigure("打开目标路径", state="normal" if entry.target and entry.target_exists else "disabled")
+        self.context_menu.entryconfigure("复制目标路径", state="normal" if has_target else "disabled")
+
+        self.context_menu.tk_popup(event.x_root, event.y_root)
+
     def _create_link_dialog(self) -> None:
         if self._is_scanning():
             messagebox.showinfo("扫描进行中", "请先停止当前扫描，再新建链接。")
@@ -907,27 +923,11 @@ class LinkManagerApp:
         self.scan_button.configure(state="disabled" if scanning else "normal")
         self.stop_button.configure(state="normal" if scanning else "disabled")
         self.new_link_button.configure(state="disabled" if scanning else "normal")
-        self.delete_button.configure(state="disabled" if scanning else "normal")
         self._set_action_state()
 
     def _set_action_state(self) -> None:
-        entry = self._get_selected_entry()
-        has_selection = entry is not None
-
-        self.open_link_path_button.configure(
-            state="normal" if has_selection and entry.target_exists else "disabled"
-        )
-        self.copy_link_button.configure(state="normal" if has_selection else "disabled")
-        self.copy_target_button.configure(
-            state="normal" if has_selection and (entry.target or entry.raw_target) else "disabled"
-        )
-        self.open_target_button.configure(
-            state="normal" if has_selection and entry.target and entry.target_exists else "disabled"
-        )
-
         if self._is_scanning():
             self.new_link_button.configure(state="disabled")
-            self.delete_button.configure(state="disabled")
 
     def _copy_to_clipboard(self, value: str) -> None:
         self.root.clipboard_clear()
