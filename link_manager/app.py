@@ -31,7 +31,7 @@ if __package__ in {None, ""}:
         SUPPORTED_LINK_TYPES,
         LinkEntry,
     )
-    from link_manager.scanner import scan_links
+    from link_manager.scanner import read_link_entry, scan_links
 else:
     from .link_ops import LinkOperationError, create_link, delete_link, open_target
     from .link_ops import reveal_in_explorer
@@ -45,7 +45,7 @@ else:
         SUPPORTED_LINK_TYPES,
         LinkEntry,
     )
-    from .scanner import scan_links
+    from .scanner import read_link_entry, scan_links
 
 FILTER_ALL = "全部"
 
@@ -219,10 +219,6 @@ class LinkManagerApp:
         self.search_var = tk.StringVar()
         self.status_var = tk.StringVar(value="就绪。")
         self.summary_var = tk.StringVar(value="显示 0 / 总计 0")
-        self.selection_name_var = tk.StringVar(value="-")
-        self.selection_type_var = tk.StringVar(value="-")
-        self.selection_status_var = tk.StringVar(value="-")
-        self.selection_modified_var = tk.StringVar(value="-")
 
         self.entries: list[LinkEntry] = []
         self.activity_messages: list[str] = []
@@ -501,26 +497,8 @@ class LinkManagerApp:
         ttk.Button(filter_frame, text="清空筛选", command=self._clear_filters).grid(row=6, column=0, sticky="ew")
         ttk.Label(filter_frame, textvariable=self.summary_var, foreground="#58667d").grid(row=7, column=0, sticky="w", pady=(10, 0))
 
-        detail_frame = ttk.LabelFrame(parent, text="选中项详情", style="Section.TLabelframe", padding=12)
-        detail_frame.grid(row=2, column=0, sticky="nsew", pady=(12, 0))
-        detail_frame.columnconfigure(0, weight=1)
-        ttk.Label(detail_frame, text="名称").grid(row=0, column=0, sticky="w")
-        ttk.Entry(detail_frame, textvariable=self.selection_name_var, state="readonly").grid(row=1, column=0, sticky="ew", pady=(4, 8))
-        ttk.Label(detail_frame, text="类型").grid(row=2, column=0, sticky="w")
-        ttk.Entry(detail_frame, textvariable=self.selection_type_var, state="readonly").grid(row=3, column=0, sticky="ew", pady=(4, 8))
-        ttk.Label(detail_frame, text="状态").grid(row=4, column=0, sticky="w")
-        ttk.Entry(detail_frame, textvariable=self.selection_status_var, state="readonly").grid(row=5, column=0, sticky="ew", pady=(4, 8))
-        ttk.Label(detail_frame, text="修改时间").grid(row=6, column=0, sticky="w")
-        ttk.Entry(detail_frame, textvariable=self.selection_modified_var, state="readonly").grid(row=7, column=0, sticky="ew", pady=(4, 8))
-        ttk.Label(detail_frame, text="链接路径").grid(row=8, column=0, sticky="w")
-        self.link_path_text = self._make_readonly_text(detail_frame, height=3)
-        self.link_path_text.grid(row=9, column=0, sticky="ew", pady=(4, 8))
-        ttk.Label(detail_frame, text="目标路径").grid(row=10, column=0, sticky="w")
-        self.target_path_text = self._make_readonly_text(detail_frame, height=3)
-        self.target_path_text.grid(row=11, column=0, sticky="ew", pady=(4, 0))
-
         action_frame = ttk.LabelFrame(parent, text="操作", style="Section.TLabelframe", padding=12)
-        action_frame.grid(row=3, column=0, sticky="ew", pady=(12, 0))
+        action_frame.grid(row=2, column=0, sticky="ew", pady=(12, 0))
         action_frame.columnconfigure((0, 1), weight=1)
         self.new_link_button = ttk.Button(action_frame, text="新建链接", command=self._create_link_dialog)
         self.new_link_button.grid(row=0, column=0, sticky="ew", padx=(0, 6), pady=(0, 6))
@@ -536,7 +514,7 @@ class LinkManagerApp:
         self.copy_target_button.grid(row=2, column=1, sticky="ew", padx=(6, 0), pady=(3, 0))
 
         activity_frame = ttk.LabelFrame(parent, text="操作日志", style="Section.TLabelframe", padding=12)
-        activity_frame.grid(row=4, column=0, sticky="nsew", pady=(12, 0))
+        activity_frame.grid(row=3, column=0, sticky="nsew", pady=(12, 0))
         activity_frame.columnconfigure(0, weight=1)
         activity_frame.rowconfigure(0, weight=1)
         self.activity_text = self._make_readonly_text(activity_frame, height=10)
@@ -625,7 +603,6 @@ class LinkManagerApp:
 
         self.entries.clear()
         self._refresh_tree()
-        self._clear_selection_details()
         self.status_var.set(f"正在扫描：{root_path}")
         self._log_activity(f"开始扫描：{root_path}")
 
@@ -708,8 +685,6 @@ class LinkManagerApp:
             selected_iid = str(self._visible_paths.index(selected_path))
             self.tree.selection_set(selected_iid)
             self.tree.focus(selected_iid)
-        else:
-            self._clear_selection_details()
 
         self._set_action_state()
 
@@ -796,16 +771,6 @@ class LinkManagerApp:
         return lambda entry: entry.name.lower()
 
     def _on_selection_changed(self, _event: object = None) -> None:
-        entry = self._get_selected_entry()
-        if entry is None:
-            self._clear_selection_details()
-        else:
-            self.selection_name_var.set(entry.name)
-            self.selection_type_var.set(entry.link_type)
-            self.selection_status_var.set(entry.status_text)
-            self.selection_modified_var.set(entry.modified_display)
-            self._set_text(self.link_path_text, entry.path)
-            self._set_text(self.target_path_text, entry.target or entry.raw_target)
         self._set_action_state()
 
     def _on_double_click(self, _event: object) -> None:
@@ -914,17 +879,27 @@ class LinkManagerApp:
         self.status_var.set("已复制目标路径。")
 
     def _refresh_after_mutation(self, changed_path: str) -> None:
-        root_path = self.root_path_var.get().strip()
-        if root_path:
-            try:
-                root_abs = os.path.abspath(root_path)
-                changed_abs = os.path.abspath(changed_path)
-                if os.path.commonpath([root_abs, changed_abs]) == root_abs:
-                    self._start_scan()
-                    return
-            except ValueError:
-                pass
+        changed_abs = os.path.abspath(changed_path)
+        self._remove_entry_by_path(changed_abs)
+        if self._is_path_under_current_root(changed_abs):
+            if entry := read_link_entry(changed_abs):
+                self.entries.append(entry)
         self._refresh_tree()
+
+    def _remove_entry_by_path(self, path: str) -> None:
+        self.entries = [entry for entry in self.entries if entry.path != path]
+
+    def _is_path_under_current_root(self, path: str) -> bool:
+        root_path = self.root_path_var.get().strip()
+        if not root_path:
+            return False
+
+        try:
+            root_abs = os.path.abspath(os.path.expandvars(os.path.expanduser(root_path)))
+            path_abs = os.path.abspath(path)
+            return os.path.commonpath([root_abs, path_abs]) == root_abs
+        except ValueError:
+            return False
 
     def _clear_filters(self) -> None:
         self.type_filter_var.set(FILTER_ALL)
@@ -952,14 +927,6 @@ class LinkManagerApp:
         if 0 <= index < len(self._visible_paths):
             return self._visible_paths[index]
         return ""
-
-    def _clear_selection_details(self) -> None:
-        self.selection_name_var.set("-")
-        self.selection_type_var.set("-")
-        self.selection_status_var.set("-")
-        self.selection_modified_var.set("-")
-        self._set_text(self.link_path_text, "")
-        self._set_text(self.target_path_text, "")
 
     def _set_scan_controls(self, scanning: bool) -> None:
         self.scan_button.configure(state="disabled" if scanning else "normal")

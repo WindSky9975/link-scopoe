@@ -149,6 +149,18 @@ def scan_links(root_path: str, output_queue: "queue.Queue[ScanEvent]", stop_even
     )
 
 
+def read_link_entry(path: str) -> LinkEntry | None:
+    path = os.path.abspath(os.path.expanduser(os.path.expandvars(path)))
+    try:
+        item_stat = os.stat(path, follow_symlinks=False)
+    except (FileNotFoundError, OSError):
+        return None
+
+    if not _is_reparse_point(item_stat):
+        return None
+    return _build_link_entry(path, item_stat)
+
+
 def _build_link_entry(path: str, item_stat: os.stat_result) -> LinkEntry | None:
     link_type = _link_type_from_stat(item_stat)
     if not link_type:
