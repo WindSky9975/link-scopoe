@@ -202,12 +202,17 @@ class LinkManagerApp:
         self.sort_descending = False
         self._visible_paths: list[str] = []
         self._updating_filters = False
+        self.sidebar_host: ttk.Frame | None = None
+        self.sidebar_canvas: tk.Canvas | None = None
+        self.sidebar_content: ttk.Frame | None = None
+        self.sidebar_window_id: int | None = None
 
         self.search_var.trace_add("write", self._handle_filter_change)
         self.type_filter_var.trace_add("write", self._handle_filter_change)
         self.target_drive_filter_var.trace_add("write", self._handle_filter_change)
 
         self._build_layout()
+        self.root.bind_all("<MouseWheel>", self._handle_global_mousewheel, add="+")
         self._set_action_state()
 
     def run(self) -> None:
@@ -261,9 +266,11 @@ class LinkManagerApp:
         content = ttk.Panedwindow(container, orient="horizontal")
         content.grid(row=1, column=0, sticky="nsew")
 
-        sidebar = ttk.Frame(content, style="Panel.TFrame", padding=14)
-        sidebar.columnconfigure(0, weight=1)
-        content.add(sidebar, weight=0)
+        sidebar_host = ttk.Frame(content, style="Panel.TFrame")
+        sidebar_host.columnconfigure(0, weight=1)
+        sidebar_host.rowconfigure(0, weight=1)
+        content.add(sidebar_host, weight=0)
+        sidebar = self._create_scrollable_sidebar(sidebar_host)
 
         results = ttk.Frame(content, style="Panel.TFrame", padding=14)
         results.columnconfigure(0, weight=1)
@@ -275,6 +282,71 @@ class LinkManagerApp:
 
         status_bar = ttk.Label(container, textvariable=self.status_var, style="Status.TLabel", anchor="w")
         status_bar.grid(row=2, column=0, sticky="ew", pady=(14, 0))
+
+    def _create_scrollable_sidebar(self, parent: ttk.Frame) -> ttk.Frame:
+        canvas = tk.Canvas(
+            parent,
+            background="#ffffff",
+            borderwidth=0,
+            highlightthickness=0,
+            relief="flat",
+        )
+        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.grid(row=0, column=0, sticky="nsew")
+        scrollbar.grid(row=0, column=1, sticky="ns")
+
+        content = ttk.Frame(canvas, style="Panel.TFrame", padding=14)
+        window_id = canvas.create_window((0, 0), window=content, anchor="nw")
+        content.columnconfigure(0, weight=1)
+
+        content.bind("<Configure>", self._sync_sidebar_scroll_region)
+        canvas.bind("<Configure>", self._sync_sidebar_canvas_width)
+
+        self.sidebar_host = parent
+        self.sidebar_canvas = canvas
+        self.sidebar_content = content
+        self.sidebar_window_id = window_id
+        return content
+
+    def _sync_sidebar_scroll_region(self, _event: object = None) -> None:
+        if self.sidebar_canvas is None:
+            return
+        scroll_region = self.sidebar_canvas.bbox("all")
+        if scroll_region is not None:
+            self.sidebar_canvas.configure(scrollregion=scroll_region)
+
+    def _sync_sidebar_canvas_width(self, event: object) -> None:
+        if self.sidebar_canvas is None or self.sidebar_window_id is None:
+            return
+        width = getattr(event, "width", None)
+        if width is None:
+            return
+        self.sidebar_canvas.itemconfigure(self.sidebar_window_id, width=width)
+        self._sync_sidebar_scroll_region()
+
+    def _handle_global_mousewheel(self, event: tk.Event) -> str | None:
+        if self.sidebar_canvas is None or not self._is_sidebar_widget(event.widget):
+            return None
+
+        delta = getattr(event, "delta", 0)
+        if not delta:
+            return None
+
+        units = -int(delta / 120)
+        if units == 0:
+            units = -1 if delta > 0 else 1
+        self.sidebar_canvas.yview_scroll(units, "units")
+        return "break"
+
+    def _is_sidebar_widget(self, widget: tk.Misc | None) -> bool:
+        current = widget
+        while current is not None:
+            if current == self.sidebar_host:
+                return True
+            current = current.master
+        return False
 
     def _build_sidebar(self, parent: ttk.Frame) -> None:
         scan_frame = ttk.LabelFrame(parent, text="扫描范围", style="Section.TLabelframe", padding=12)
